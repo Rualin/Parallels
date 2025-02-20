@@ -1,5 +1,6 @@
 ReadMe for CMake version of lab 1
 To start program:
+- Go to directory CMakeVersion (cd CMakeVersion)
 - Print "cmake -S . -B build" in your console
 - Then print "cd build"
 - "make"
