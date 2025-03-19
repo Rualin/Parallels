@@ -4,44 +4,29 @@
 #include <chrono>
 #include <cmath>
 #include <fstream>
-#include "functions.cpp"
+#include <vector>
 
 
 using namespace std;
+typedef vector<double> vd;
 
-
-double** init_matrix(int m, int n_threads) {
-    double** res = (double**)malloc(m * sizeof(double*));
+vector<vd> init_matrix(int m, int n_threads) {
+    vector<vd> res(m, vd(m, 1.0));
     #pragma omp parallel num_threads(n_threads)
     {
         #pragma omp for schedule(dynamic, 100)
         for (int i = 0; i < m; i++) {
-            res[i] = (double*)malloc(m * sizeof(double));
-            for (int j = 0; j < m; j++) {
-                if (i == j) {
-                    res[i][i] = 2.0;
-                }
-                else {
-                    res[i][j] = 1.0;
-                }
-            }
+            res[i][i] = 2.0;
         }
     }
     return res;
 }
-double* init_vector(int m, int n_threads) {
-    double* res = (double*)malloc(m * sizeof(double));
-    #pragma omp parallel num_threads(n_threads)
-    {
-        #pragma omp for schedule(dynamic, 100)
-        for (int i = 0; i < m; i++) {
-            res[i] = m + 1;
-        }
-    }
+vd init_vector(int m, int n_threads) {
+    vd res(m, m + 1);
     return res;
 }
 
-void inline mul_mat_vec(double** mat, double* vec, double* res, int m) {
+void inline mul_mat_vec(vector<vd>& mat, vd& vec, vd& res, int m) {
     #pragma omp for schedule(dynamic, 100)
     for (int i = 0; i < m; i++) {
         res[i] = 0;
@@ -51,14 +36,14 @@ void inline mul_mat_vec(double** mat, double* vec, double* res, int m) {
     }
     // return res;
 }
-void inline sub_vect(double* a, double* b, double* res, int m) {
+void inline sub_vect(vd& a, vd& b, vd& res, int m) {
     #pragma omp for schedule(dynamic, 100)
     for (int i = 0; i < m; i++) {
         res[i] = a[i] - b[i];
     }
     // return res;
 }
-void inline vec_to_scal(double* a, double val, double* res, int m) {
+void inline vec_to_scal(vd& a, double val, vd& res, int m) {
     #pragma omp for schedule(dynamic, 100)
     for (int i = 0; i < m; i++) {
         res[i] = a[i] * val;
@@ -66,7 +51,7 @@ void inline vec_to_scal(double* a, double val, double* res, int m) {
     // return res;
 }
 
-double norm(double* vec, int m) {
+double norm(vd& vec, int m) {
     double res = 0.0;
     // #pragma omp for schedule(dynamic, 100) reduction(+:res)
     for(int i = 0; i < m; i++) {
@@ -75,20 +60,23 @@ double norm(double* vec, int m) {
     res = sqrt(res);
     return res;
 }
-bool criterion(double** A, double* b, double* x, double eps, int m) {
-    double* sub = (double*)calloc(m, sizeof(double));
+bool criterion(vector<vd>& A, vd& b, vd& x, double eps, int m) {
+    // double* sub = (double*)calloc(m, sizeof(double));
+    vd sub(m, 0.0);
     mul_mat_vec(A, x, sub, m);
     sub_vect(sub, b, sub, m); // must work with two "sub"
     double numerat = norm(sub, m);
     // double numerat = norm(sub_vect(mul_mat_vec(A, x, m, n_threads), b, m, n_threads), m, n_threads);
     double denomin = norm(b, m);
-    free(sub);
+    // free(sub);
     return (numerat / denomin) > eps;
 }
 
-double* easy_iter(double** A, double* b, double t, int m, int n_threads) {
-    double* x = (double*)calloc(m, sizeof(double));
-    double* sub = (double*)malloc(m * sizeof(double));
+vd easy_iter(vector<vd>& A, vd& b, double t, int m, int n_threads) {
+    // double* x = (double*)calloc(m, sizeof(double));
+    // double* sub = (double*)malloc(m * sizeof(double));
+    vd x(m, 0.0);
+    vd sub(m, 0.0);
     bool criter = true;
     double numerat, denomin;
     while(criter) {
@@ -123,18 +111,18 @@ double* easy_iter(double** A, double* b, double t, int m, int n_threads) {
             //criterion calc end
         }
     }
-    free(sub);
+    // free(sub);
     return x;
 }
 
 int main(int argc, char** argv) {
     int m = atol(argv[1]);
     int n_threads = atol(argv[2]);
-    double** A = init_matrix(m, n_threads);
-    double* b = init_vector(m, n_threads);
+    vector<vd> A = init_matrix(m, n_threads);
+    vd b = init_vector(m, n_threads);
     double t = 1.0 / m;
     const auto start{chrono::steady_clock::now()};
-    double* res = easy_iter(A, b, t, m, n_threads);
+    vd res = easy_iter(A, b, t, m, n_threads);
     const auto end{chrono::steady_clock::now()};
     const chrono::duration<double> elapsed_seconds{end - start};
     // cout << "Result:\n";
@@ -143,16 +131,16 @@ int main(int argc, char** argv) {
     // cout << elapsed_seconds.count() << "\n";
     fstream fout("result2.csv", fstream::out | fstream::app);
     fout << n_threads << "," << elapsed_seconds.count() << "\n";
-    #pragma omp parallel num_threads(n_threads)
-    {
-        #pragma omp for schedule(dynamic, 100)
-        for (int i = 0; i < m; i++) {
-            free(A[i]);
-        }
-    }
-    free(A);
-    free(b);
-    free(res);
+    // #pragma omp parallel num_threads(n_threads)
+    // {
+    //     #pragma omp for schedule(dynamic, 100)
+    //     for (int i = 0; i < m; i++) {
+    //         free(A[i]);
+    //     }
+    // }
+    // free(A);
+    // free(b);
+    // free(res);
     fout.close();
     return 0;
 }
